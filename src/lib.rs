@@ -19,7 +19,7 @@
 //!     println!("{:?}", time);
 //!
 //!     println!("Setting clock ahead 30 seconds");
-//!     let mut ct: chrono::NaiveDateTime = time.into();
+//!     let mut ct: chrono::NaiveDateTime = time.try_into().expect("conversion failed");
 //!     ct += chrono::Duration::seconds(30);
 //!
 //!     // convert back to RtcTime and set it
@@ -33,16 +33,11 @@
 //! }
 //! ```
 
-extern crate chrono;
-extern crate libc;
-#[macro_use]
-extern crate nix;
-
 use chrono::{Datelike, Timelike};
 
 use libc::c_int;
-use std::{fs, io, path};
 use std::os::unix::io::AsRawFd;
+use std::{fs, io, path};
 
 /// Basic epoch for dates.
 ///
@@ -55,8 +50,8 @@ mod ffi {
     use super::RtcTime;
 
     // ioctls, stolen from linux/rtc.h
-    ioctl!(read rtc_rd_time with 'p', 0x09; RtcTime);
-    ioctl!(write_ptr rtc_set_time with 'p', 0x0a; RtcTime);
+    nix::ioctl_read!(rtc_rd_time, 'p', 0x09, RtcTime);
+    nix::ioctl_write_ptr!(rtc_set_time, 'p', 0x0a, RtcTime);
 }
 
 /// Linux `struct rtc_time` wrapper
@@ -91,16 +86,23 @@ pub struct RtcTime {
     pub tm_isdst: c_int,
 }
 
-impl From<RtcTime> for chrono::NaiveDateTime {
-    fn from(rtc: RtcTime) -> chrono::NaiveDateTime {
-        let d = chrono::NaiveDate::from_ymd(
-            rtc.tm_year as i32 + YEAR_EPOCH,
+impl TryFrom<RtcTime> for chrono::NaiveDateTime {
+    type Error = ();
+
+    fn try_from(rtc: RtcTime) -> Result<chrono::NaiveDateTime, Self::Error> {
+        let d = chrono::NaiveDate::from_ymd_opt(
+            rtc.tm_year + YEAR_EPOCH,
             (rtc.tm_mon + 1) as u32,
             rtc.tm_mday as u32,
-        );
-        let t =
-            chrono::NaiveTime::from_hms(rtc.tm_hour as u32, rtc.tm_min as u32, rtc.tm_sec as u32);
-        chrono::NaiveDateTime::new(d, t)
+        )
+        .ok_or(())?;
+        let t = chrono::NaiveTime::from_hms_opt(
+            rtc.tm_hour as u32,
+            rtc.tm_min as u32,
+            rtc.tm_sec as u32,
+        )
+        .ok_or(())?;
+        Ok(chrono::NaiveDateTime::new(d, t))
     }
 }
 
@@ -141,12 +143,15 @@ mod tests {
         };
 
         let ct = chrono::NaiveDateTime::new(
-            chrono::NaiveDate::from_ymd(2018, 2, 19),
-            chrono::NaiveTime::from_hms(14, 6, 1),
+            chrono::NaiveDate::from_ymd_opt(2018, 2, 19)
+                .expect("date creation from literals failed"),
+            chrono::NaiveTime::from_hms_opt(14, 6, 1).expect("time creation from literals failed"),
         );
 
         let rtc_from_ct: RtcTime = ct.into();
-        let ct_from_rtc: chrono::NaiveDateTime = rtc.into();
+        let ct_from_rtc: chrono::NaiveDateTime = rtc
+            .try_into()
+            .expect("converting RtcTime to NaiveDateTime failed");
 
         assert_eq!(rtc, rtc_from_ct);
         assert_eq!(ct, ct_from_rtc);
