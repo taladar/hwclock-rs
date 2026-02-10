@@ -9,6 +9,6 @@ documentation = "https://docs.rs/hwclock"
 description = "Manages the Linux hardware clock through ioctls"
 
 [dependencies]
-chrono = "0.4.42"
+chrono = "0.4.43"
 libc = "0.2.180"
-nix = { version = "0.30.1", features = ["ioctl"] }
+nix = { version = "0.31.1", features = ["ioctl"] }
