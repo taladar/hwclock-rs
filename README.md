@@ -12,26 +12,26 @@ extern crate chrono;
 extern crate hwclock;
 
 fn main() {
-   use hwclock::HwClockDev;
+    use hwclock::HwClockDev;
 
-   let rtc = HwClockDev::open("/dev/rtc0").expect("could not open rtc clock");
+    let rtc = HwClockDev::open("/dev/rtc0").expect("could not open rtc clock");
 
-   println!("{:?}", rtc);
+    println!("{:?}", rtc);
 
-   let time = rtc.get_time().expect("could not read rtc clock");
-   println!("{:?}", time);
+    let time = rtc.get_time().expect("could not read rtc clock");
+    println!("{:?}", time);
 
-   println!("Setting clock ahead 30 seconds");
-   let mut ct: chrono::NaiveDateTime = time.into();
-   ct += chrono::Duration::seconds(30);
+    println!("Setting clock ahead 30 seconds");
+    let mut ct: chrono::NaiveDateTime = time.into();
+    ct += chrono::Duration::seconds(30);
 
-   // convert back to RtcTime and set it
-   let ntime = ct.into();
-   rtc.set_time(&ntime).expect("could not set rtc clock");
+    // convert back to RtcTime and set it
+    let ntime = ct.into();
+    rtc.set_time(&ntime).expect("could not set rtc clock");
 
-   println!("Rereading...");
-   let time2 = rtc.get_time().expect("could not read rtc clock");
+    println!("Rereading...");
+    let time2 = rtc.get_time().expect("could not read rtc clock");
 
-   println!("{:?}", time2);
+    println!("{:?}", time2);
 }
 ```
